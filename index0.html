@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Inverted Galton Board Simulation</title>
+  <style>
+    :root{ --bg:#0f1724; --panel:#0b1220; --accent:#ffb020; --muted:#94a3b8; --card:#071022 }
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071026,#071022 40%);color:#e6eef8;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .wrap{display:grid;grid-template-columns:420px 1fr;gap:18px;padding:18px;height:100vh;box-sizing:border-box}
+    .panel{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+    h1{margin:0 0 12px 0;font-size:18px}
+    label{display:block;font-size:13px;color:var(--muted);margin-top:12px}
+    input[type=range]{width:100%}
+    .controls{display:flex;gap:8px;margin-top:14px}
+    button{background:var(--accent);border:none;color:#071022;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer}
+    button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    .small{font-size:13px;color:var(--muted);}
+    canvas{width:100%;height:100%;display:block;background:linear-gradient(180deg,#082032 0%, #051024 100%);border-radius:10px}
+    .footer{margin-top:10px;font-size:12px;color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center}
+    .stat{font-weight:700;color:#fff}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>Inverted Galton Board — Interactive Simulation</h1>
+      <div class="small">Balls rise upward through pegs into bins at the top.</div>
+
+      <label>Number of balls: <span id="lblBalls" class="stat">500</span></label>
+      <input id="inpBalls" type="range" min="50" max="5000" step="50" value="500">
+
+      <label>Number of levels (rows of pegs): <span id="lblLevels" class="stat">12</span></label>
+      <input id="inpLevels" type="range" min="3" max="20" step="1" value="12">
+
+      <label>Probability of moving RIGHT at each peg: <span id="lblP" class="stat">0.50</span></label>
+      <input id="inpP" type="range" min="0" max="1" step="0.01" value="0.5">
+
+      <label>Animation speed (higher = faster): <span id="lblSpeed" class="stat">1.0</span></label>
+      <input id="inpSpeed" type="range" min="0.2" max="6" step="0.1" value="1.0">
+
+      <div class="controls">
+        <button id="btnStart">Start</button>
+        <button id="btnReset" class="secondary">Reset</button>
+        <button id="btnDownload" class="secondary">Download CSV</button>
+      </div>
+
+      <div class="footer" style="margin-top:14px">
+        <div class="row"><div style="flex:1">Balls launched:</div><div id="dropped" class="stat">0</div></div>
+        <div class="row"><div style="flex:1">Peak bin:</div><div id="peak" class="stat">—</div></div>
+        <div class="row"><div style="flex:1">Mean (empirical):</div><div id="mean" class="stat">—</div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="display:flex;flex-direction:column;">
+      <canvas id="board"></canvas>
+      <div style="margin-top:10px;font-size:12px;color:var(--muted)">Visualization: rising balls (upwards through pegs) and live histogram (top). Resize window to adjust canvas.</div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const inpBalls = document.getElementById('inpBalls');
+  const inpLevels = document.getElementById('inpLevels');
+  const inpP = document.getElementById('inpP');
+  const inpSpeed = document.getElementById('inpSpeed');
+  const lblBalls = document.getElementById('lblBalls');
+  const lblLevels = document.getElementById('lblLevels');
+  const lblP = document.getElementById('lblP');
+  const lblSpeed = document.getElementById('lblSpeed');
+  const btnStart = document.getElementById('btnStart');
+  const btnReset = document.getElementById('btnReset');
+  const btnDownload = document.getElementById('btnDownload');
+  const droppedEl = document.getElementById('dropped');
+  const peakEl = document.getElementById('peak');
+  const meanEl = document.getElementById('mean');
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.floor(rect.width * devicePixelRatio);
+    canvas.height = Math.floor(rect.height * devicePixelRatio);
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    draw();
+  }
+
+  window.addEventListener('resize', resize);
+
+  let NUM_BALLS = +inpBalls.value;
+  let NUM_LEVELS = +inpLevels.value;
+  let P_RIGHT = +inpP.value;
+  let SPEED = +inpSpeed.value;
+
+  let bins = new Array(NUM_LEVELS+1).fill(0);
+  let ballsInFlight = [];
+  let dropped = 0;
+  let running = false;
+  let raf = null;
+  const gutter = 18;
+
+  function resetState() {
+    NUM_BALLS = +inpBalls.value; NUM_LEVELS = +inpLevels.value; P_RIGHT = +inpP.value; SPEED = +inpSpeed.value;
+    bins = new Array(NUM_LEVELS+1).fill(0);
+    ballsInFlight = [];
+    dropped = 0;
+    running = false;
+    updateStats();
+    draw();
+  }
+
+  inpBalls.addEventListener('input', ()=>{ lblBalls.textContent = inpBalls.value; });
+  inpLevels.addEventListener('input', ()=>{ lblLevels.textContent = inpLevels.value; });
+  inpP.addEventListener('input', ()=>{ lblP.textContent = Number(inpP.value).toFixed(2); });
+  inpSpeed.addEventListener('input', ()=>{ lblSpeed.textContent = Number(inpSpeed.value).toFixed(1); });
+
+  btnStart.addEventListener('click', ()=>{ if (!running) start(); else pause(); });
+  btnReset.addEventListener('click', ()=>{ if (raf){ cancelAnimationFrame(raf); raf=null; } resetState(); });
+
+  btnDownload.addEventListener('click', ()=>{
+    const rows = ['bin_index,count'];
+    for (let i=0;i<bins.length;i++) rows.push(`${i},${bins[i]}`);
+    const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='inverted_galton_bins.csv'; a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  function start(){ NUM_BALLS = +inpBalls.value; NUM_LEVELS = +inpLevels.value; P_RIGHT = +inpP.value; SPEED = +inpSpeed.value; if (bins.length !== NUM_LEVELS+1) bins = new Array(NUM_LEVELS+1).fill(0); running = true; btnStart.textContent='Pause'; if (!raf) loop(); }
+  function pause(){ running=false; btnStart.textContent='Start'; if (raf){ cancelAnimationFrame(raf); raf=null; } }
+
+  function spawnBall() {
+    const startX = canvas.width/(2*devicePixelRatio);
+    const b = { x: startX, y: canvas.height/devicePixelRatio - gutter - 8, level: 0, rights: 0, settled: false };
+    return b;
+  }
+
+  function step(dt) {
+    const ballsPerSecond = Math.max(20, NUM_BALLS / 6) * SPEED;
+    const spawnProb = dt * ballsPerSecond;
+    if (dropped < NUM_BALLS && Math.random() < spawnProb) { ballsInFlight.push(spawnBall()); dropped++; }
+
+    for (let b of ballsInFlight){
+      if (b.settled) continue;
+      b.y -= 80 * dt * SPEED;
+      const rowY = canvas.height/devicePixelRatio - gutter - (b.level+1) * ((canvas.height/devicePixelRatio - 2*gutter) / (NUM_LEVELS + 2));
+      if (b.y <= rowY && b.level < NUM_LEVELS){
+        const goRight = Math.random() < P_RIGHT;
+        if (goRight) b.rights += 1;
+        b.level += 1;
+        const pegGap = Math.min(42, Math.max(24, (canvas.width/devicePixelRatio - 2*gutter) / (NUM_LEVELS+1)));
+        b.x += (goRight?1:-1) * pegGap * 0.5;
+      }
+      const topY = gutter;
+      if (b.level >= NUM_LEVELS && b.y <= topY){
+        b.settled = true;
+        const idx = Math.max(0, Math.min(NUM_LEVELS, b.rights));
+        bins[idx] += 1;
+      }
+    }
+    updateStats();
+  }
+
+  function updateStats(){
+    droppedEl.textContent = dropped;
+    const total = bins.reduce((a,b)=>a+b,0);
+    let meanText='—', peakText='—';
+    if (total>0){
+      let sum=0; let peakIdx=0; let peakVal=0;
+      for (let i=0;i<bins.length;i++){ sum += i * bins[i]; if (bins[i]>peakVal){peakVal=bins[i]; peakIdx=i;} }
+      meanText = (sum/total).toFixed(2);
+      peakText = `${peakIdx} (${peakVal})`;
+    }
+    meanEl.textContent = meanText; peakEl.textContent = peakText;
+  }
+
+  function draw(){
+    const w = canvas.width/devicePixelRatio; const h = canvas.height/devicePixelRatio;
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle = 'rgba(3,8,20,0.7)'; ctx.fillRect(0,0,w,h);
+
+    // pegs
+    const pegR=6; const usableH = h - 2*gutter - 80; const rowGap = usableH / (NUM_LEVELS+1);
+    for (let row=0; row<NUM_LEVELS; row++){
+      const y = h - gutter - (row+1) * rowGap;
+      const count = row + 1; const totalWidth = (count-1) * 30; const startX = (w - totalWidth)/2;
+      for (let i=0;i<count;i++){
+        const x = startX + i*30;
+        ctx.beginPath(); ctx.arc(x,y,pegR,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.09)'; ctx.fill();
+      }
+    }
+
+    // balls
+    for (let b of ballsInFlight){
+      ctx.beginPath(); ctx.arc(b.x, b.y, 6, 0, Math.PI*2);
+      ctx.fillStyle = b.settled ? 'rgba(255,192,72,0.95)' : 'rgba(255,255,255,0.95)';
+      ctx.fill();
+    }
+
+    // histogram at top
+    const histH = Math.min(140, h*0.28);
+    const y0 = 8;
+    const x0 = 12;
+    const histW = w - 24;
+    ctx.fillStyle='rgba(2,6,23,0.6)'; ctx.fillRect(x0,y0,histW,histH);
+    const maxCount = Math.max(1, ...bins);
+    const barW = histW/bins.length;
+    for (let i=0;i<bins.length;i++){
+      const bh = (bins[i]/maxCount)*(histH-20);
+      const by = y0 + histH - bh - 8;
+      ctx.fillStyle='rgba(255,176,32,0.95)'; ctx.fillRect(x0+i*barW+2, by, Math.max(4, barW-6), bh);
+    }
+  }
+
+  let last = performance.now();
+  function loop(now){ raf = requestAnimationFrame(loop); const dt = Math.min(0.06,(now-last)/1000); last=now; if(running){step(dt);} draw(); if(dropped>=NUM_BALLS&&running){const unsettled=ballsInFlight.some(b=>!b.settled); if(!unsettled){running=false;btnStart.textContent='Start';}} }
+
+  resetState(); resize(); raf=requestAnimationFrame((t)=>{last=t; loop(t);});
+})();
+</script>
+</body>
+</html>
