@@ -1,77 +1,344 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Galton Board Simulation</title>
-<style>
-:root{ --bg:#0f1724; --panel:#0b1220; --accent:#ffb020; --muted:#94a3b8; --card:#071022 }
-html,body{height:100%;margin:0;background:linear-gradient(180deg,#071026,#071022 40%);color:#e6eef8;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-.wrap{display:grid;grid-template-columns:420px 1fr;gap:18px;padding:18px;height:100vh;box-sizing:border-box}
-.panel{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
-h1{margin:0 0 12px 0;font-size:18px}
-label{display:block;font-size:13px;color:var(--muted);margin-top:12px}
-input[type=range]{width:100%}
-.controls{display:flex;gap:8px;margin-top:14px}
-button{background:var(--accent);border:none;color:#071022;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer}
-button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
-.small{font-size:13px;color:var(--muted);}
-canvas{width:100%;height:100%;display:block;background:linear-gradient(180deg,#082032 0%, #051024 100%);border-radius:10px}
-.footer{margin-top:10px;font-size:12px;color:var(--muted)}
-.row{display:flex;gap:8px;align-items:center}
-.stat{font-weight:700;color:#fff}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Galton Board Simulation</title>
+  <style>
+    :root{ --bg:#0f1724; --panel:#0b1220; --accent:#ffb020; --muted:#94a3b8; --card:#071022 }
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#071026,#071022 40%);color:#e6eef8;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    .wrap{display:grid;grid-template-columns:420px 1fr;gap:18px;padding:18px;height:100vh;box-sizing:border-box}
+    .panel{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+    h1{margin:0 0 12px 0;font-size:18px}
+    label{display:block;font-size:13px;color:var(--muted);margin-top:12px}
+    input[type=range]{width:100%}
+    .controls{display:flex;gap:8px;margin-top:14px}
+    button{background:var(--accent);border:none;color:#071022;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer}
+    button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    .small{font-size:13px;color:var(--muted);}
+    canvas{width:100%;height:100%;display:block;background:linear-gradient(180deg,#082032 0%, #051024 100%);border-radius:10px}
+    .footer{margin-top:10px;font-size:12px;color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center}
+    .stat{font-weight:700;color:#fff}
+  </style>
 </head>
 <body>
-<div class="wrap">
-<div class="panel">
-<h1>Galton Board — Interactive HTML Simulation</h1>
-<div class="small">Adjust parameters then press <strong>Start</strong>. Press again to pause.</div>
+  <div class="wrap">
+    <div class="panel">
+      <h1>Galton Board — Interactive HTML Simulation</h1>
+      <div class="small">Adjust parameters then press <strong>Start</strong>. Press again to pause.</div>
 
+      <label>Number of balls: <span id="lblBalls" class="stat">500</span></label>
+      <input id="inpBalls" type="range" min="50" max="5000" step="50" value="500">
 
-<label>Number of balls: <span id="lblBalls" class="stat">500</span></label>
-<input id="inpBalls" type="range" min="50" max="5000" step="50" value="500">
+      <label>Number of levels (rows of pegs): <span id="lblLevels" class="stat">12</span></label>
+      <input id="inpLevels" type="range" min="3" max="20" step="1" value="12">
 
+      <label>Probability of moving RIGHT at each peg: <span id="lblP" class="stat">0.50</span></label>
+      <input id="inpP" type="range" min="0" max="1" step="0.01" value="0.5">
 
-<label>Number of levels (rows of pegs): <span id="lblLevels" class="stat">12</span></label>
-<input id="inpLevels" type="range" min="3" max="20" step="1" value="12">
+      <label>Animation speed (higher = faster): <span id="lblSpeed" class="stat">1.0</span></label>
+      <input id="inpSpeed" type="range" min="0.2" max="6" step="0.1" value="1.0">
 
+      <div class="controls">
+        <button id="btnStart">Start</button>
+        <button id="btnReset" class="secondary">Reset</button>
+        <button id="btnDownload" class="secondary">Download CSV</button>
+      </div>
 
-<label>Probability of moving RIGHT at each peg: <span id="lblP" class="stat">0.50</span></label>
-<input id="inpP" type="range" min="0" max="1" step="0.01" value="0.5">
+      <div class="footer" style="margin-top:14px">
+        <div class="row"><div style="flex:1">Balls dropped:</div><div id="dropped" class="stat">0</div></div>
+        <div class="row"><div style="flex:1">Peak bin:</div><div id="peak" class="stat">—</div></div>
+        <div class="row"><div style="flex:1">Mean (empirical):</div><div id="mean" class="stat">—</div></div>
+      </div>
+    </div>
 
-
-<label>Animation speed (higher = faster): <span id="lblSpeed" class="stat">1.0</span></label>
-<input id="inpSpeed" type="range" min="0.2" max="6" step="0.1" value="1.0">
-
-
-<div class="controls">
-<button id="btnStart">Start</button>
-<button id="btnReset" class="secondary">Reset</button>
-<button id="btnDownload" class="secondary">Download CSV</button>
-</div>
-
-
-<div class="footer" style="margin-top:14px">
-<div class="row"><div style="flex:1">Balls dropped:</div><div id="dropped" class="stat">0</div></div>
-<div class="row"><div style="flex:1">Peak bin:</div><div id="peak" class="stat">—</div></div>
-<div class="row"><div style="flex:1">Mean (empirical):</div><div id="mean" class="stat">—</div></div>
-</div>
-</div>
-
-
-<div class="panel" style="display:flex;flex-direction:column;">
-<canvas id="board"></canvas>
-<div style="margin-top:10px;font-size:12px;color:var(--muted)">Visualization: falling balls (left) and live histogram (bottom). Resize window to adjust canvas.</div>
-</div>
-</div>
-
+    <div class="panel" style="display:flex;flex-direction:column;">
+      <canvas id="board"></canvas>
+      <div style="margin-top:10px;font-size:12px;color:var(--muted)">Visualization: falling balls (left) and live histogram (bottom). Resize window to adjust canvas.</div>
+    </div>
+  </div>
 
 <script>
 // Galton board single-file interactive simulation
 (() => {
-const canvas = document.getElementById('board');
-const ctx = canvas.getContext('2d');
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
 
+  // Controls
+  const inpBalls = document.getElementById('inpBalls');
+  const inpLevels = document.getElementById('inpLevels');
+  const inpP = document.getElementById('inpP');
+  const inpSpeed = document.getElementById('inpSpeed');
+  const lblBalls = document.getElementById('lblBalls');
+  const lblLevels = document.getElementById('lblLevels');
+  const lblP = document.getElementById('lblP');
+  const lblSpeed = document.getElementById('lblSpeed');
+  const btnStart = document.getElementById('btnStart');
+  const btnReset = document.getElementById('btnReset');
+  const btnDownload = document.getElementById('btnDownload');
+  const droppedEl = document.getElementById('dropped');
+  const peakEl = document.getElementById('peak');
+  const meanEl = document.getElementById('mean');
 
+  function resize() {
+    // match backing store size for crisp drawing
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = Math.floor(rect.width * devicePixelRatio);
+    canvas.height = Math.floor(rect.height * devicePixelRatio);
+    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    draw();
+  }
+
+  window.addEventListener('resize', resize);
+
+  // Simulation params (defaults tied to UI)
+  let NUM_BALLS = +inpBalls.value;
+  let NUM_LEVELS = +inpLevels.value;
+  let P_RIGHT = +inpP.value;
+  let SPEED = +inpSpeed.value;
+
+  // simulation state
+  let bins = new Array(NUM_LEVELS+1).fill(0);
+  let ballsInFlight = []; // each ball is {x, y, levelIndex, rights, settled}
+  let dropped = 0;
+  let running = false;
+  let raf = null;
+
+  // visual layout
+  const gutter = 18; // space around
+  function layout() {
+    const w = canvas.width / devicePixelRatio;
+    const h = canvas.height / devicePixelRatio;
+    return {w,h,pegRadius:6,pegGap:Math.min(42, Math.max(24, (w - 2*gutter) / (NUM_LEVELS+1))) };
+  }
+
+  function resetState() {
+    NUM_BALLS = +inpBalls.value; NUM_LEVELS = +inpLevels.value; P_RIGHT = +inpP.value; SPEED = +inpSpeed.value;
+    bins = new Array(NUM_LEVELS+1).fill(0);
+    ballsInFlight = [];
+    dropped = 0;
+    running = false;
+    updateStats();
+    draw();
+  }
+
+  // UI wiring
+  inpBalls.addEventListener('input', ()=>{ lblBalls.textContent = inpBalls.value; });
+  inpLevels.addEventListener('input', ()=>{ lblLevels.textContent = inpLevels.value; });
+  inpP.addEventListener('input', ()=>{ lblP.textContent = Number(inpP.value).toFixed(2); });
+  inpSpeed.addEventListener('input', ()=>{ lblSpeed.textContent = Number(inpSpeed.value).toFixed(1); });
+
+  btnStart.addEventListener('click', ()=>{
+    if (!running) start(); else pause();
+  });
+  btnReset.addEventListener('click', ()=>{
+    if (raf){ cancelAnimationFrame(raf); raf=null; }
+    resetState();
+  });
+
+  btnDownload.addEventListener('click', ()=>{
+    // export CSV of bin counts
+    const rows = ['bin_index,count'];
+    for (let i=0;i<bins.length;i++) rows.push(`${i},${bins[i]}`);
+    const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='galton_bins.csv'; a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  function start(){
+    // (re)read UI
+    NUM_BALLS = +inpBalls.value; NUM_LEVELS = +inpLevels.value; P_RIGHT = +inpP.value; SPEED = +inpSpeed.value;
+    // ensure bins length
+    if (bins.length !== NUM_LEVELS+1) bins = new Array(NUM_LEVELS+1).fill(0);
+    running = true; btnStart.textContent='Pause';
+    if (!raf) loop();
+  }
+  function pause(){ running=false; btnStart.textContent='Start'; if (raf){ cancelAnimationFrame(raf); raf=null; } }
+
+  // spawn a new ball ready at top center
+  function spawnBall() {
+    const L = layout();
+    const startX = L.w/2;
+    const b = {
+      x: startX,
+      y: gutter + 8,
+      level: 0,          // which peg row we are approaching (0..NUM_LEVELS-1)
+      rights: 0,         // count of rights so far
+      settled: false,
+      vx: 0,
+      vy: 0
+    };
+    return b;
+  }
+
+  // advance balls physics + peg logic
+  function step(dt) {
+    // spawn condition: slowly release until we reach NUM_BALLS
+    const ballsPerSecond = Math.max(20, NUM_BALLS / 6) * SPEED; // more balls spawn faster with SPEED
+    const spawnProb = dt * ballsPerSecond;
+    if (dropped < NUM_BALLS && Math.random() < spawnProb) {
+      ballsInFlight.push(spawnBall());
+      dropped++;
+    }
+
+    // For each ball, move it down until it reaches peg row; at each peg row decide L/R by Bernoulli
+    for (let b of ballsInFlight){
+      if (b.settled) continue;
+      // move towards next peg row
+      b.y += 80 * dt * SPEED; // vertical speed
+      // the threshold for hitting next peg row
+      const rowY = gutter + (b.level+1) * ( (canvas.height / devicePixelRatio - 2*gutter) / (NUM_LEVELS + 2) );
+      if (b.y >= rowY && b.level < NUM_LEVELS){
+        // at a peg: decide left/right
+        const goRight = Math.random() < P_RIGHT;
+        if (goRight) { b.rights += 1; }
+        b.level += 1;
+        // nudge horizontal position so the ball moves across
+        // center x should shift by +- pegGap/2 per decision
+        const L = layout();
+        const shift = (goRight?1:-1) * L.pegGap * 0.5;
+        b.x += shift;
+      }
+      // if reached bottom beyond last level, settle into bin
+      const bottomY = gutter + (NUM_LEVELS+1) * ( (canvas.height / devicePixelRatio - 2*gutter) / (NUM_LEVELS + 2) );
+      if (b.level >= NUM_LEVELS && b.y >= bottomY){
+        b.settled = true;
+        // final bin index is b.rights (0..NUM_LEVELS)
+        const idx = Math.max(0, Math.min(NUM_LEVELS, b.rights));
+        bins[idx] += 1;
+      }
+    }
+
+    updateStats();
+  }
+
+  function updateStats(){
+    droppedEl.textContent = dropped;
+    // compute mean and peak
+    const total = bins.reduce((a,b)=>a+b,0);
+    let meanText='—', peakText='—';
+    if (total>0){
+      let sum=0; let peakIdx=0; let peakVal=0;
+      for (let i=0;i<bins.length;i++){ sum += i * bins[i]; if (bins[i]>peakVal){peakVal=bins[i]; peakIdx=i;} }
+      meanText = (sum/total).toFixed(2);
+      peakText = `${peakIdx} (${peakVal})`;
+    }
+    meanEl.textContent = meanText; peakEl.textContent = peakText;
+  }
+
+  function drawPegs(){
+    const L = layout();
+    const w = L.w, h = L.h;
+    const pegR = L.pegRadius;
+    const top = gutter + 30;
+    const usableH = h - 2*gutter - 80; // leave room for bins and margins
+    const rowGap = usableH / (NUM_LEVELS + 1);
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    ctx.fillRect(0,0,w,h);
+
+    // draw pegs row by row; each row has (rowIndex+1) pegs and is centered
+    for (let row=0; row<NUM_LEVELS; row++){
+      const y = top + (row+1) * rowGap;
+      const count = row + 1;
+      const totalWidth = (count-1) * L.pegGap;
+      const startX = (w - totalWidth)/2;
+      for (let i=0;i<count;i++){
+        const x = startX + i * L.pegGap;
+        ctx.beginPath(); ctx.arc(x, y, pegR, 0, Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.09)'; ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawBalls(){
+    const L = layout();
+    // draw each ball
+    for (let b of ballsInFlight){
+      ctx.beginPath(); ctx.arc(b.x, b.y, 6, 0, Math.PI*2);
+      if (b.settled) ctx.fillStyle = 'rgba(255,192,72,0.95)'; else ctx.fillStyle='rgba(255,255,255,0.95)';
+      ctx.fill();
+      ctx.closePath();
+    }
+  }
+
+  function drawHistogram(){
+    const L = layout();
+    const w = L.w, h = L.h;
+    // draw histogram area at bottom
+    const histH = Math.min(140, h*0.28);
+    const y0 = h - histH - 8;
+    const x0 = 12;
+    const histW = w - 24;
+
+    // background
+    ctx.save();
+    ctx.fillStyle = 'rgba(2,6,23,0.6)';
+    roundRect(ctx, x0, y0, histW, histH, 8); ctx.fill();
+
+    // draw bars
+    const maxCount = Math.max(1, ...bins);
+    const barW = histW / bins.length;
+    for (let i=0;i<bins.length;i++){
+      const bx = x0 + i * barW + 2;
+      const bh = (bins[i] / maxCount) * (histH - 20);
+      const by = y0 + histH - bh - 8;
+      ctx.fillStyle = 'rgba(255,176,32,0.95)';
+      roundRect(ctx, bx, by, Math.max(4, barW-6), bh, 4); ctx.fill();
+      // label occasionally
+      if (bins.length <= 16 || i % Math.ceil(bins.length/12) === 0){
+        ctx.fillStyle = 'rgba(255,255,255,0.65)'; ctx.font = '11px sans-serif'; ctx.fillText(i, bx+2, y0 + histH - 2);
+      }
+    }
+
+    // axes & title
+    ctx.fillStyle='rgba(255,255,255,0.85)'; ctx.font='12px sans-serif'; ctx.fillText('Final bins', x0+6, y0+14);
+    ctx.restore();
+  }
+
+  function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+  // Main draw routine
+  function draw(){
+    const L = layout();
+    ctx.clearRect(0,0,L.w,L.h);
+    // background subtle grid
+    ctx.save();
+    ctx.fillStyle = 'rgba(3,8,20,0.7)'; ctx.fillRect(0,0,L.w,L.h);
+    ctx.restore();
+
+    drawPegs();
+    drawBalls();
+    drawHistogram();
+  }
+
+  // animation loop
+  let last = performance.now();
+  function loop(now){
+    raf = requestAnimationFrame(loop);
+    const dt = Math.min(0.06, (now - last) / 1000);
+    last = now;
+    if (running){ step(dt); }
+    draw();
+    // stop condition: finished spawning and no balls in flight
+    if (dropped >= NUM_BALLS && running){
+      const unsettled = ballsInFlight.some(b=>!b.settled);
+      if (!unsettled){ // all settled
+        running=false; btnStart.textContent='Start';
+      }
+    }
+  }
+
+  // initialize
+  resetState();
+  resize();
+  // start loop idle (not running) so draw shows initial state
+  raf = requestAnimationFrame((t)=>{ last = t; loop(t); });
+
+})();
+</script>
+</body>
 </html>
