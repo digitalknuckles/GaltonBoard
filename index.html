@@ -178,6 +178,11 @@ canvas{
 (() => {
   const btnSettings = document.getElementById('btnSettings');
   const settingsDropdown = document.getElementById('settingsDropdown');
+  const chkShowHistogram = document.getElementById('chkShowHistogram');
+  const chkShowPegs = document.getElementById('chkShowPegs');
+
+  let showHistogram = true;
+  let showPegs = true;
 
   // Toggle dropdown
   btnSettings.addEventListener('click', (e) => {
@@ -192,8 +197,14 @@ canvas{
     }
   });
 
-// Galton board single-file interactive simulation
-(() => {
+  chkShowHistogram.addEventListener('change', () => {
+    showHistogram = chkShowHistogram.checked;
+  });
+  chkShowPegs.addEventListener('change', () => {
+    showPegs = chkShowPegs.checked;
+  });
+
+  // Galton board interactive simulation
   const canvas = document.getElementById('board');
   const ctx = canvas.getContext('2d');
 
@@ -213,31 +224,11 @@ canvas{
   const peakEl = document.getElementById('peak');
   const meanEl = document.getElementById('mean');
 
-  // Settings dropdown
-  const btnSettings = document.getElementById('btnSettings');
-  const settingsDropdown = document.getElementById('settingsDropdown');
-  const chkShowHistogram = document.getElementById('chkShowHistogram');
-  const chkShowPegs = document.getElementById('chkShowPegs');
-
-  let showHistogram = true;
-  let showPegs = true;
-
-  btnSettings.addEventListener('click', () => {
-    settingsDropdown.classList.toggle('active');
-  });
-
-  chkShowHistogram.addEventListener('change', () => {
-    showHistogram = chkShowHistogram.checked;
-  });
-  chkShowPegs.addEventListener('change', () => {
-    showPegs = chkShowPegs.checked;
-  });
-
   function resize() {
     const rect = canvas.getBoundingClientRect();
     canvas.width = Math.floor(rect.width * devicePixelRatio);
     canvas.height = Math.floor(rect.height * devicePixelRatio);
-    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+    ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
     draw();
   }
   window.addEventListener('resize', resize);
@@ -248,8 +239,8 @@ canvas{
   let P_RIGHT = +inpP.value;
   let SPEED = +inpSpeed.value;
 
-  // state
-  let bins = new Array(NUM_LEVELS+1).fill(0);
+  // State
+  let bins = new Array(NUM_LEVELS + 1).fill(0);
   let ballsInFlight = [];
   let dropped = 0;
   let running = false;
@@ -259,7 +250,7 @@ canvas{
   function layout() {
     const w = canvas.width / devicePixelRatio;
     const h = canvas.height / devicePixelRatio;
-    return {w,h,pegRadius:6,pegGap:Math.min(42, Math.max(24, (w - 2*gutter) / (NUM_LEVELS+1)))};
+    return { w, h, pegRadius: 6, pegGap: Math.min(42, Math.max(24, (w - 2 * gutter) / (NUM_LEVELS + 1))) };
   }
 
   function resetState() {
@@ -267,7 +258,7 @@ canvas{
     NUM_LEVELS = +inpLevels.value;
     P_RIGHT = +inpP.value;
     SPEED = +inpSpeed.value;
-    bins = new Array(NUM_LEVELS+1).fill(0);
+    bins = new Array(NUM_LEVELS + 1).fill(0);
     ballsInFlight = [];
     dropped = 0;
     running = false;
@@ -276,35 +267,35 @@ canvas{
   }
 
   // UI wiring
-  inpBalls.addEventListener('input', ()=>{ lblBalls.textContent = inpBalls.value; });
-  inpLevels.addEventListener('input', ()=>{ lblLevels.textContent = inpLevels.value; });
-  inpP.addEventListener('input', ()=>{ lblP.textContent = Number(inpP.value).toFixed(2); });
-  inpSpeed.addEventListener('input', ()=>{ lblSpeed.textContent = Number(inpSpeed.value).toFixed(1); });
+  inpBalls.addEventListener('input', () => { lblBalls.textContent = inpBalls.value; });
+  inpLevels.addEventListener('input', () => { lblLevels.textContent = inpLevels.value; });
+  inpP.addEventListener('input', () => { lblP.textContent = Number(inpP.value).toFixed(2); });
+  inpSpeed.addEventListener('input', () => { lblSpeed.textContent = Number(inpSpeed.value).toFixed(1); });
 
-  btnStart.addEventListener('click', ()=>{ if (!running) start(); else pause(); });
-  btnReset.addEventListener('click', ()=>{ if (raf){ cancelAnimationFrame(raf); raf=null; } resetState(); });
+  btnStart.addEventListener('click', () => { if (!running) start(); else pause(); });
+  btnReset.addEventListener('click', () => { if (raf) { cancelAnimationFrame(raf); raf = null; } resetState(); });
 
-  btnDownload.addEventListener('click', ()=>{
+  btnDownload.addEventListener('click', () => {
     const rows = ['bin_index,count'];
-    for (let i=0;i<bins.length;i++) rows.push(`${i},${bins[i]}`);
-    const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+    for (let i = 0; i < bins.length; i++) rows.push(`${i},${bins[i]}`);
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href=url; a.download='galton_bins.csv'; a.click();
+    const a = document.createElement('a'); a.href = url; a.download = 'galton_bins.csv'; a.click();
     URL.revokeObjectURL(url);
   });
 
-  function start(){
+  function start() {
     NUM_BALLS = +inpBalls.value; NUM_LEVELS = +inpLevels.value; P_RIGHT = +inpP.value; SPEED = +inpSpeed.value;
-    if (bins.length !== NUM_LEVELS+1) bins = new Array(NUM_LEVELS+1).fill(0);
-    running = true; btnStart.textContent='Pause';
+    if (bins.length !== NUM_LEVELS + 1) bins = new Array(NUM_LEVELS + 1).fill(0);
+    running = true; btnStart.textContent = 'Pause';
     if (!raf) loop();
   }
-  function pause(){ running=false; btnStart.textContent='Start'; if (raf){ cancelAnimationFrame(raf); raf=null; } }
+  function pause() { running = false; btnStart.textContent = 'Start'; if (raf) { cancelAnimationFrame(raf); raf = null; } }
 
   function spawnBall() {
     const L = layout();
-    const startX = L.w/2;
-    return {x:startX,y:gutter+8,level:0,rights:0,settled:false,vx:0,vy:0};
+    const startX = L.w / 2;
+    return { x: startX, y: gutter + 8, level: 0, rights: 0, settled: false };
   }
 
   function step(dt) {
@@ -315,20 +306,20 @@ canvas{
       dropped++;
     }
 
-    for (let b of ballsInFlight){
+    for (let b of ballsInFlight) {
       if (b.settled) continue;
       b.y += 80 * dt * SPEED;
-      const rowY = gutter + (b.level+1) * ((canvas.height / devicePixelRatio - 2*gutter) / (NUM_LEVELS + 2));
-      if (b.y >= rowY && b.level < NUM_LEVELS){
+      const rowY = gutter + (b.level + 1) * ((canvas.height / devicePixelRatio - 2 * gutter) / (NUM_LEVELS + 2));
+      if (b.y >= rowY && b.level < NUM_LEVELS) {
         const goRight = Math.random() < P_RIGHT;
         if (goRight) b.rights += 1;
         b.level += 1;
         const L = layout();
-        const shift = (goRight?1:-1) * L.pegGap * 0.5;
+        const shift = (goRight ? 1 : -1) * L.pegGap * 0.5;
         b.x += shift;
       }
-      const bottomY = gutter + (NUM_LEVELS+1) * ((canvas.height / devicePixelRatio - 2*gutter) / (NUM_LEVELS + 2));
-      if (b.level >= NUM_LEVELS && b.y >= bottomY){
+      const bottomY = gutter + (NUM_LEVELS + 1) * ((canvas.height / devicePixelRatio - 2 * gutter) / (NUM_LEVELS + 2));
+      if (b.level >= NUM_LEVELS && b.y >= bottomY) {
         b.settled = true;
         const idx = Math.max(0, Math.min(NUM_LEVELS, b.rights));
         bins[idx] += 1;
@@ -337,114 +328,111 @@ canvas{
     updateStats();
   }
 
-  function updateStats(){
+  function updateStats() {
     droppedEl.textContent = dropped;
-    const total = bins.reduce((a,b)=>a+b,0);
-    let meanText='—', peakText='—';
-    if (total>0){
-      let sum=0, peakIdx=0, peakVal=0;
-      for (let i=0;i<bins.length;i++){ sum += i*bins[i]; if (bins[i]>peakVal){peakVal=bins[i]; peakIdx=i;} }
-      meanText = (sum/total).toFixed(2);
+    const total = bins.reduce((a, b) => a + b, 0);
+    let meanText = '—', peakText = '—';
+    if (total > 0) {
+      let sum = 0, peakIdx = 0, peakVal = 0;
+      for (let i = 0; i < bins.length; i++) { sum += i * bins[i]; if (bins[i] > peakVal) { peakVal = bins[i]; peakIdx = i; } }
+      meanText = (sum / total).toFixed(2);
       peakText = `${peakIdx} (${peakVal})`;
     }
     meanEl.textContent = meanText; peakEl.textContent = peakText;
   }
 
-  function drawPegs(){
+  function drawPegs() {
     if (!showPegs) return;
-    const L = layout(); const w=L.w,h=L.h,pegR=L.pegRadius;
-    const top = gutter+30;
-    const usableH = h - 2*gutter - 80;
-    const rowGap = usableH / (NUM_LEVELS+1);
+    const L = layout(); const w = L.w, h = L.h, pegR = L.pegRadius;
+    const top = gutter + 30;
+    const usableH = h - 2 * gutter - 80;
+    const rowGap = usableH / (NUM_LEVELS + 1);
     ctx.save();
-    ctx.fillStyle = 'rgba(255,255,255,0.03)';
-    ctx.fillRect(0,0,w,h);
-    for (let row=0;row<NUM_LEVELS;row++){
-      const y = top + (row+1)*rowGap;
-      const count = row+1;
-      const totalWidth = (count-1)*L.pegGap;
-      const startX = (w-totalWidth)/2;
-      for (let i=0;i<count;i++){
-        const x = startX + i*L.pegGap;
-        ctx.beginPath(); ctx.arc(x,y,pegR,0,Math.PI*2);
-        ctx.fillStyle='rgba(255,255,255,0.09)'; ctx.fill();
+    for (let row = 0; row < NUM_LEVELS; row++) {
+      const y = top + (row + 1) * rowGap;
+      const count = row + 1;
+      const totalWidth = (count - 1) * L.pegGap;
+      const startX = (w - totalWidth) / 2;
+      for (let i = 0; i < count; i++) {
+        const x = startX + i * L.pegGap;
+        ctx.beginPath(); ctx.arc(x, y, pegR, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.09)'; ctx.fill();
       }
     }
     ctx.restore();
   }
 
-  function drawBalls(){
-    for (let b of ballsInFlight){
-      ctx.beginPath(); ctx.arc(b.x,b.y,6,0,Math.PI*2);
-      ctx.fillStyle = b.settled?'rgba(255,192,72,0.95)':'rgba(255,255,255,0.95)';
+  function drawBalls() {
+    for (let b of ballsInFlight) {
+      ctx.beginPath(); ctx.arc(b.x, b.y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = b.settled ? 'rgba(255,192,72,0.95)' : 'rgba(255,255,255,0.95)';
       ctx.fill(); ctx.closePath();
     }
   }
 
-  function drawHistogram(){
+  function drawHistogram() {
     if (!showHistogram) return;
-    const L = layout(); const w=L.w,h=L.h;
-    const histH = Math.min(140,h*0.28);
-    const y0 = h-histH-8, x0=12, histW=w-24;
+    const L = layout(); const w = L.w, h = L.h;
+    const histH = Math.min(140, h * 0.28);
+    const y0 = h - histH - 8, x0 = 12, histW = w - 24;
     ctx.save();
-    ctx.fillStyle='rgba(2,6,23,0.6)';
-    roundRect(ctx,x0,y0,histW,histH,8); ctx.fill();
-    const maxCount = Math.max(1,...bins);
-    const barW = histW/bins.length;
-    for (let i=0;i<bins.length;i++){
-      const bx=x0+i*barW+2;
-      const bh=(bins[i]/maxCount)*(histH-20);
-      const by=y0+histH-bh-8;
-      ctx.fillStyle='rgba(255,176,32,0.95)';
-      roundRect(ctx,bx,by,Math.max(4,barW-6),bh,4); ctx.fill();
-      if (bins.length<=16 || i%Math.ceil(bins.length/12)===0){
-        ctx.fillStyle='rgba(255,255,255,0.65)';
-        ctx.font='11px sans-serif';
-        ctx.fillText(i,bx+2,y0+histH-2);
+    ctx.fillStyle = 'rgba(2,6,23,0.6)';
+    roundRect(ctx, x0, y0, histW, histH, 8); ctx.fill();
+    const maxCount = Math.max(1, ...bins);
+    const barW = histW / bins.length;
+    for (let i = 0; i < bins.length; i++) {
+      const bx = x0 + i * barW + 2;
+      const bh = (bins[i] / maxCount) * (histH - 20);
+      const by = y0 + histH - bh - 8;
+      ctx.fillStyle = 'rgba(255,176,32,0.95)';
+      roundRect(ctx, bx, by, Math.max(4, barW - 6), bh, 4); ctx.fill();
+      if (bins.length <= 16 || i % Math.ceil(bins.length / 12) === 0) {
+        ctx.fillStyle = 'rgba(255,255,255,0.65)';
+        ctx.font = '11px sans-serif';
+        ctx.fillText(i, bx + 2, y0 + histH - 2);
       }
     }
-    ctx.fillStyle='rgba(255,255,255,0.85)'; ctx.font='12px sans-serif';
-    ctx.fillText('Final bins',x0+6,y0+14);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '12px sans-serif';
+    ctx.fillText('Final bins', x0 + 6, y0 + 14);
     ctx.restore();
   }
 
-  function roundRect(ctx,x,y,w,h,r){
+  function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
-    ctx.moveTo(x+r,y);
-    ctx.arcTo(x+w,y,x+w,y+h,r);
-    ctx.arcTo(x+w,y+h,x,y+h,r);
-    ctx.arcTo(x,y+h,x,y,r);
-    ctx.arcTo(x,y,x+w,y,r);
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
   }
 
-  function draw(){
+  function draw() {
     const L = layout();
-    ctx.clearRect(0,0,L.w,L.h);
+    ctx.clearRect(0, 0, L.w, L.h);
     ctx.save();
-    ctx.fillStyle='rgba(3,8,20,0.7)'; ctx.fillRect(0,0,L.w,L.h);
+    ctx.fillStyle = 'rgba(3,8,20,0.7)'; ctx.fillRect(0, 0, L.w, L.h);
     ctx.restore();
     drawPegs();
     drawBalls();
     drawHistogram();
   }
 
-  let last=performance.now();
-  function loop(now){
-    raf=requestAnimationFrame(loop);
-    const dt=Math.min(0.06,(now-last)/1000); last=now;
+  let last = performance.now();
+  function loop(now) {
+    raf = requestAnimationFrame(loop);
+    const dt = Math.min(0.06, (now - last) / 1000); last = now;
     if (running) step(dt);
     draw();
-    if (dropped>=NUM_BALLS && running){
-      const unsettled=ballsInFlight.some(b=>!b.settled);
-      if (!unsettled){running=false;btnStart.textContent='Start';}
+    if (dropped >= NUM_BALLS && running) {
+      const unsettled = ballsInFlight.some(b => !b.settled);
+      if (!unsettled) { running = false; btnStart.textContent = 'Start'; }
     }
   }
 
   resetState();
   resize();
-  raf=requestAnimationFrame((t)=>{last=t;loop(t);});
-})();
+  raf = requestAnimationFrame((t) => { last = t; loop(t); });
 })();
 </script>
 </body>
